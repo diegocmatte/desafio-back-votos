@@ -2,6 +2,8 @@ package com.example.desafiobackvotos.controller;
 
 import com.example.desafiobackvotos.domain.Agenda;
 import com.example.desafiobackvotos.service.AssemblyService;
+
+import io.micrometer.common.util.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,7 +19,7 @@ public class AssemblyController {
     private AssemblyService assemblyService;
 
     @PostMapping("/createAgenda")
-    public ResponseEntity<Agenda> createAgenda(@RequestBody Agenda agenda){
+    public ResponseEntity<Agenda> createAgenda(@RequestBody Agenda agenda) throws NoSuchFieldException {
         assemblyService.saveAgenda(agenda);
         return ResponseEntity.ok(agenda);
     }

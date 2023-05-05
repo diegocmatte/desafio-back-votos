@@ -1,0 +1,3 @@
+user:
+  info:
+    url: https://user-info.herokuapp.com/users/%s
