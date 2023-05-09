@@ -12,11 +12,11 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 
-@Table(name = "VOTE")
+@Table(name = "POLL")
 @Entity
 @Getter
 @Setter
-public class Vote {
+public class Poll {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -29,5 +29,7 @@ public class Vote {
     @OneToOne
     @JoinColumn(name = "agenda_id")
     private Agenda agenda;
+
+    private String associateVote;
 
 }
