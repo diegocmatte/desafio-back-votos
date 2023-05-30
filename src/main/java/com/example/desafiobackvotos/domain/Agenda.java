@@ -9,16 +9,18 @@ import jakarta.persistence.Table;
 
 import lombok.Getter;
 import lombok.Setter;
+import lombok.ToString;
 
 @Table(name = "AGENDA")
 @Entity
 @Getter
 @Setter
+@ToString
 public class Agenda {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Integer AgendaId;
 
     private String subject;
 }

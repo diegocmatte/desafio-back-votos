@@ -6,9 +6,11 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -16,6 +18,7 @@ import lombok.Setter;
 @Entity
 @Getter
 @Setter
+@AllArgsConstructor
 public class Poll {
 
     @Id
@@ -26,10 +29,13 @@ public class Poll {
     @JoinColumn(name = "associate_id")
     private Associate associate;
 
-    @OneToOne
+    @ManyToOne
     @JoinColumn(name = "agenda_id")
     private Agenda agenda;
 
     private String associateVote;
 
+    protected Poll() {
+
+    }
 }

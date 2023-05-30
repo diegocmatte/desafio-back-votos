@@ -6,5 +6,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface AssemblyRepository extends JpaRepository<Agenda, Integer> {
+public interface AgendaRepository extends JpaRepository<Agenda, Integer> {
+
+    boolean findAgendaBySubject(String subject);
+    Agenda getAgendaBySubject(String subject);
+
 }

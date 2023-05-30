@@ -19,8 +19,8 @@ public class Associate {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Integer AssociateId;
 
     @Column(unique = true)
-    private Integer cpf;
+    private String cpf;
 }
