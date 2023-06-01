@@ -23,7 +23,7 @@ public class Poll {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Integer pollId;
 
     @OneToOne
     @JoinColumn(name = "associate_id")

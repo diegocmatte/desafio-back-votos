@@ -1,10 +1,8 @@
 package com.example.desafiobackvotos.controller;
 
 import com.example.desafiobackvotos.domain.Agenda;
-
 import com.example.desafiobackvotos.domain.Associate;
 import com.example.desafiobackvotos.domain.Poll;
-
 import com.example.desafiobackvotos.service.AssemblyService;
 import com.example.desafiobackvotos.util.Constants;
 
@@ -21,6 +19,7 @@ import org.apache.commons.lang3.StringUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -32,6 +31,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Optional;
 
 
 @RestController
@@ -67,7 +67,8 @@ public class AssemblyController {
     @Operation(summary = "Create new agenda")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Successful POST request - Agenda was created", content = {@Content(schema = @Schema(implementation = Agenda.class))}),
-            @ApiResponse(responseCode = "400", description = "Problem during the process")
+            @ApiResponse(responseCode = "400", description = "Problem during the process"),
+            @ApiResponse(responseCode = "404", description = "No document was found")
     })
     public ResponseEntity<Agenda> createAgenda(
             @Valid @RequestBody Agenda agenda) {
@@ -92,13 +93,14 @@ public class AssemblyController {
     public ResponseEntity<?> validateDocument(
             @Parameter(description = "Associate document", required = true) @RequestParam String document){
         String methodName = "voteRegister";
-        Associate associate = assemblyService.getAssociateByCpf(document);
-        if(associate != null){
+        Optional<Associate> associate = assemblyService.getAssociateByCpf(document);
+        if(associate.isPresent()){
             LOGGER.info("Document has been validated");
-            return new ResponseEntity<>("The associate exists and the document is valid.", HttpStatus.OK);
+            return new ResponseEntity<>(Constants.ABLE_TO_VOTE, HttpStatus.OK);
+        } else {
+            LOGGER.error("The associate [{}] is not able to vote, method [{}]", document, methodName);
+            return new ResponseEntity<>(Constants.UNABLE_TO_VOTE, HttpStatus.OK);
         }
-        LOGGER.error("Error during the validation of the [{}] document, method [{}]", document, methodName);
-        return new ResponseEntity<>("A problem occurred during the validation of the document.", HttpStatus.BAD_REQUEST);
     }
 
     @PostMapping(value = "/vote", produces = MediaType.APPLICATION_JSON_VALUE)
