@@ -2,24 +2,35 @@ package com.example.desafiobackvotos.service;
 
 import com.example.desafiobackvotos.domain.Agenda;
 import com.example.desafiobackvotos.domain.Associate;
-import com.example.desafiobackvotos.domain.Poll;
+import com.example.desafiobackvotos.domain.SessionVote;
 import com.example.desafiobackvotos.exception.DocumentAlreadyExistsException;
 import com.example.desafiobackvotos.exception.NoDocumentFoundException;
+import com.example.desafiobackvotos.exception.NoSessionFoundException;
 import com.example.desafiobackvotos.exception.NoSubjectFoundException;
 import com.example.desafiobackvotos.exception.SubjectAlreadyExistsException;
+import com.example.desafiobackvotos.exception.VoteContentException;
+import com.example.desafiobackvotos.exception.VoteNotAllowedException;
 import com.example.desafiobackvotos.repository.AgendaRepository;
 import com.example.desafiobackvotos.repository.AssociateRepository;
-import com.example.desafiobackvotos.repository.PollRepository;
+import com.example.desafiobackvotos.repository.SessionRepository;
 import com.example.desafiobackvotos.util.Constants;
 
 import org.apache.commons.lang3.StringUtils;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class AssemblyService {
@@ -27,21 +38,24 @@ public class AssemblyService {
     @Autowired
     private AgendaRepository agendaRepository;
     @Autowired
-    private PollRepository pollRepository;
-    @Autowired
     private AssociateRepository associateRepository;
+    @Autowired
+    private SessionRepository sessionRepository;
+
+    public static Integer COUNT_FOR_YES = 0;
+    public static Integer COUNT_FOR_NO = 0;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AssemblyService.class);
 
     @Transactional
-    public Associate saveAssociate(Associate associate){
+    public void saveAssociate(Associate associate){
         if(StringUtils.isNotBlank(associate.getCpf())){
             Optional<Associate> savedAssociate = Optional.ofNullable(associateRepository.getAssociateByCpf(associate.getCpf()));
             if(savedAssociate.isPresent()){
-                throw new DocumentAlreadyExistsException("Document already exists: " + associate.getCpf());
+                throw new DocumentAlreadyExistsException(Constants.DOCUMENT_ALREADY_EXISTS + associate.getCpf());
             }
             LOGGER.info("Associate created in database");
-            return associateRepository.save(associate);
+            associateRepository.save(associate);
         } else {
             LOGGER.error("No CPF was informed");
             throw new NoDocumentFoundException(Constants.DOCUMENT_NOT_FOUND);
@@ -49,14 +63,14 @@ public class AssemblyService {
     }
 
     @Transactional
-    public Agenda saveAgenda(Agenda agenda) {
+    public void saveAgenda(Agenda agenda) {
         if(StringUtils.isNotBlank(agenda.getSubject())) {
             Optional<Agenda> savedAgenda = Optional.ofNullable(agendaRepository.getAgendaBySubject(agenda.getSubject()));
             if(savedAgenda.isPresent()){
-                throw new SubjectAlreadyExistsException("Subject already exists: " + agenda.getSubject());
+                throw new SubjectAlreadyExistsException(Constants.SUBJECT_ALREADY_EXISTS + agenda.getSubject());
             }
             LOGGER.info("Agenda created in database");
-            return agendaRepository.save(agenda);
+            agendaRepository.save(agenda);
         } else {
             LOGGER.error("No subject was informed");
             throw new NoSubjectFoundException(Constants.NO_SUBJECT_FOUND);
@@ -64,9 +78,11 @@ public class AssemblyService {
     }
 
     //  This method was removed because the external API is not working properly
+    /*
     private void validateDocument(String document) {
-        //return restClient.validateDocument(document);
+        restClient.validateDocument(document);
     }
+     */
 
     public Optional<Associate> getAssociateByCpf(String document){
         if(StringUtils.isNotBlank(document)) {
@@ -89,18 +105,118 @@ public class AssemblyService {
     }
 
     @Transactional
-    public void registerVote(Poll poll) {
-        if (getAssociateByCpf(poll.getAssociate().getCpf()).isPresent() &&
-                agendaRepository.findAgendaBySubject(poll.getAgenda().getSubject()) &&
-                !pollRepository.findByAssociateCpfAndAgendaSubject(poll.getAssociate().getCpf(), poll.getAgenda().getSubject())) {
-            pollRepository.save(poll);
+    public void saveSessionVote(SessionVote sessionVote){
+        sessionVote.setIsSessionOpen(false);
+        sessionRepository.save(sessionVote);
+    }
+
+    @Transactional
+    public void closeSession(SessionVote sessionVote){
+        findBySessionVoteId(sessionVote.getSessionVoteId());
+        sessionVote.setIsSessionOpen(false);
+        sessionRepository.save(sessionVote);
+    }
+
+    /*
+     private void updateSession(SessionVote sessionVote, String newStatus){
+        if(newStatus.equalsIgnoreCase(Constants.OPEN) || newStatus.equalsIgnoreCase(Constants.CLOSE)){
+            switch (newStatus) {
+                case Constants.OPEN -> {
+                    sessionVote.setIsSessionOpen(true);
+                    sessionVote.setStartedTime(System.currentTimeMillis());
+                }
+                case Constants.CLOSE -> sessionVote.setIsSessionOpen(false);
+                default -> LOGGER.error("");
+            }
+        }
+    }
+    */
+    public SessionVote openSession(String agendaSubject, Integer sessionId){
+        SessionVote sessionVote = findBySessionVoteId(sessionId);
+        Optional<Agenda> agenda = getAgendaBySubject(agendaSubject);
+        if (agenda.isPresent()) {
+            sessionVote.setAgenda(agenda.get());
+            sessionVote.setIsSessionOpen(true);
+            String timeStamp = new SimpleDateFormat("MM-dd-yyyy HH:mm:ss").format(Calendar.getInstance().getTime());
+            sessionVote.setStartedTime(timeStamp);
+            startCountingSessionTime(sessionVote);
+            sessionRepository.save(sessionVote);
+            LOGGER.info("The session ID {} is opened and started at {}. The subject for voting is: {}", sessionVote.getSessionVoteId(), sessionVote.getStartedTime(), sessionVote.getAgenda().getSubject());
+            return sessionVote;
+        } else {
+            LOGGER.error("No subject was found");
+            throw new NoSubjectFoundException(Constants.NO_SUBJECT_FOUND);
         }
     }
 
-    public Poll getPollObject(String document, String agendaSubject){
-        Associate associate = associateRepository.getAssociateByCpf(document);
-        Agenda agenda = agendaRepository.getAgendaBySubject(agendaSubject);
-        return new Poll(null, associate, agenda, null);
+    public SessionVote findBySessionVoteId(Integer sessionId){
+        if(sessionRepository.existsById(sessionId)){
+            return sessionRepository.findBySessionVoteId(sessionId);
+        } else {
+            LOGGER.error("No ID {} session was found", sessionId);
+            throw new NoSessionFoundException(Constants.SESSION_NOT_FOUND);
+        }
+    }
+
+    private void startCountingSessionTime(SessionVote sessionVote){
+        Timer timer = new Timer();
+        TimerTask timerTask = new TimerTask() {
+            @Override
+            public void run() {
+                sessionVote.setIsSessionOpen(false);
+                sessionVote.setVotedYes(COUNT_FOR_YES);
+                sessionVote.setVotedNo(COUNT_FOR_NO);
+                sessionRepository.save(sessionVote);
+                LOGGER.info("The time of the session [{}] run up. Ended at [{}]", sessionVote.getSessionVoteId(), new SimpleDateFormat("MM-dd-yyyy HH:mm:ss").format(Calendar.getInstance().getTime()));
+                LOGGER.info("Results: [{}] votes for YES; [{}] votes for NO", sessionVote.getVotedYes(), sessionVote.getVotedNo());
+                COUNT_FOR_YES = 0;
+                COUNT_FOR_NO = 0;
+            }
+        };
+        timer.schedule(timerTask, TimeUnit.MINUTES.toMillis(1));
+    }
+
+    @Transactional
+    public void registerVote(Integer sessionId, String agendaSubject, String voteContent, String document) {
+        Optional<Agenda> agenda = getAgendaBySubject(agendaSubject);
+        Optional<Associate> associate = getAssociateByCpf(document);
+        if(agenda.isPresent() && associate.isPresent()) {
+            SessionVote sessionVote = findBySessionVoteId(sessionId);
+            if (isSessionOpen(sessionVote.getSessionVoteId()) && !isAssociateAllowedToVote(agenda.get(), associate.get())) {
+                LOGGER.info("The document [{}] is " + Constants.ABLE_TO_VOTE, document);
+                associate.get().setAgenda(agenda.get());
+                agenda.get().getAssociate().add(associate.get());
+                agendaRepository.save(agenda.get());
+                associateRepository.save(associate.get());
+                if (sessionVote.getAgenda().getSubject().equalsIgnoreCase(agenda.get().getSubject())) {
+                    if (voteContent.equalsIgnoreCase(Constants.VOTED_YES)) {
+                        COUNT_FOR_YES++;
+                        LOGGER.info("Vote for YES has been registered");
+                    } else if (voteContent.equalsIgnoreCase(Constants.VOTED_NO)) {
+                        associate.get().setAgenda(agenda.get());
+                        COUNT_FOR_NO++;
+                        LOGGER.info("Vote for NO has been registered");
+                    } else {
+                        throw new VoteContentException("The vote content must be YES or NO");
+                    }
+                } else {
+                    throw new NoSubjectFoundException("The subject does not match");
+                }
+            } else {
+                throw new VoteNotAllowedException("The document [{}] is " + Constants.UNABLE_TO_VOTE);
+            }
+        } else {
+            throw new NullPointerException("Agenda/Associate does not exist");
+        }
+    }
+
+    private Boolean isAssociateAllowedToVote(Agenda agenda, Associate associate){
+        return agenda.getAssociate().stream()
+                .anyMatch(a -> Objects.equals(a.getAssociateId(), associate.getAssociateId()));
+    }
+
+    public Boolean isSessionOpen(Integer sessionId){
+        return sessionRepository.findBySessionVoteId(sessionId).getIsSessionOpen();
     }
 
 }

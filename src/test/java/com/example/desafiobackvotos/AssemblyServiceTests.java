@@ -2,12 +2,15 @@ package com.example.desafiobackvotos;
 
 import com.example.desafiobackvotos.domain.Agenda;
 import com.example.desafiobackvotos.domain.Associate;
+import com.example.desafiobackvotos.domain.SessionVote;
 import com.example.desafiobackvotos.exception.DocumentAlreadyExistsException;
 import com.example.desafiobackvotos.exception.NoDocumentFoundException;
+import com.example.desafiobackvotos.exception.NoSessionFoundException;
 import com.example.desafiobackvotos.exception.NoSubjectFoundException;
 import com.example.desafiobackvotos.exception.SubjectAlreadyExistsException;
 import com.example.desafiobackvotos.repository.AgendaRepository;
 import com.example.desafiobackvotos.repository.AssociateRepository;
+import com.example.desafiobackvotos.repository.SessionRepository;
 import com.example.desafiobackvotos.service.AssemblyService;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -15,7 +18,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import static java.util.Optional.empty;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -30,11 +32,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.Optional;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
+@SpringBootTest
 public class AssemblyServiceTests {
 
     @InjectMocks
@@ -43,9 +47,12 @@ public class AssemblyServiceTests {
     private AssociateRepository associateRepository;
     @Mock
     private AgendaRepository agendaRepository;
+    @Mock
+    private SessionRepository sessionRepository;
 
     private Agenda agenda;
     private Associate associate;
+    private SessionVote sessionVote;
 
     @BeforeEach
     void init(){
@@ -57,6 +64,10 @@ public class AssemblyServiceTests {
         agenda = Agenda.builder()
                 .agendaId(1)
                 .subject("test subject")
+                .build();
+
+        sessionVote = SessionVote.builder()
+                .sessionVoteId(1)
                 .build();
 
     }
@@ -107,7 +118,7 @@ public class AssemblyServiceTests {
         assertThat(getAssociateByCpf.isPresent()).isNotNull();
     }
 
-    @DisplayName("Test for getAssociateByCpf when CPF is blank")
+    @DisplayName("Test for getAssociateByCpf when CPF is blank or not exists then throw NoDocumentFoundException")
     @Test
     public void givenAssociateObject_whenGetByCpf_thenReturnNoDocumentFoundException(){
         given(associateRepository.getAssociateByCpf(associate.getCpf()))
@@ -167,7 +178,7 @@ public class AssemblyServiceTests {
         assertThat(getAgendaBySubject.isPresent()).isNotNull();
     }
 
-    @DisplayName("Test for getAgendaBySubject when subject is blank")
+    @DisplayName("Test for getAgendaBySubject when subject is blank or does not exist and should throw NoSubjectFoundException")
     @Test
     public void givenAgendaObject_whenGetBySubject_thenReturnNoSubjectFoundException(){
         given(agendaRepository.getAgendaBySubject((agenda.getSubject())))
@@ -178,5 +189,43 @@ public class AssemblyServiceTests {
         assertThrows(NoSubjectFoundException.class, () -> assemblyService.getAgendaBySubject(""));
 
         verify(agendaRepository, never()).save(any(Agenda.class));
+    }
+
+    @DisplayName("Test for saveSession")
+    @Test
+    public void givenSessionObject_whenSaveSession_thenReturnSessionObject(){
+        given(sessionRepository.findBySessionVoteId(sessionVote.getSessionVoteId()))
+                .willReturn(sessionVote);
+
+        given(sessionRepository.save(sessionVote)).willReturn(sessionVote);
+
+        assertThat(sessionVote).isNotNull();
+
+    }
+
+    @DisplayName("Test for findBySessionVoteId")
+    @Test
+    public void givenSessionObject_whenFindBySessionVoteId_thenReturnSessionObject(){
+        given(sessionRepository.findBySessionVoteId(sessionVote.getSessionVoteId()))
+                .willReturn(sessionVote);
+
+        given(sessionRepository.save(sessionVote)).willReturn(sessionVote);
+
+        SessionVote sessionVoteTest = sessionRepository.findBySessionVoteId(sessionVote.getSessionVoteId());
+
+        assertThat(sessionVoteTest).isNotNull();
+    }
+
+    @DisplayName("Test for findBySessionVoteId when sessionId is blank or does not exist then should return NoSessionFoundException")
+    @Test
+    public void givenSessionObject_whenFindBySessionVoteId_thenNoSessionFoundException(){
+        given(sessionRepository.findBySessionVoteId(sessionVote.getSessionVoteId()))
+                .willReturn(sessionVote);
+
+        given(sessionRepository.save(sessionVote)).willReturn(sessionVote);
+
+        assertThrows(NoSessionFoundException.class, () -> assemblyService.findBySessionVoteId(2));
+
+        verify(sessionRepository, never()).save(any(SessionVote.class));
     }
 }

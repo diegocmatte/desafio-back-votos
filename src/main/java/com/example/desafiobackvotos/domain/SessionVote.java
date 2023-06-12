@@ -5,14 +5,16 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
-import lombok.Data;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+
 import org.hibernate.Hibernate;
 
 import java.util.Objects;
@@ -22,7 +24,9 @@ import java.util.Objects;
 @Getter
 @Setter
 @ToString
-@RequiredArgsConstructor
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class SessionVote {
 
     @Id
@@ -30,12 +34,16 @@ public class SessionVote {
     private Integer sessionVoteId;
 
     @OneToOne
-    @JoinColumn(name = "poll_id")
-    private Poll poll;
+    @JoinColumn(name = "agenda_id")
+    private Agenda agenda;
 
     private Boolean isSessionOpen;
 
-    private Long startedTime;
+    private String startedTime;
+
+    private Integer votedYes;
+
+    private Integer votedNo;
 
     @Override
     public boolean equals(Object o) {
